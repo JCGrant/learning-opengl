@@ -8,7 +8,7 @@ const float SPEED = 2.5f;
 const float SENSITIVITY = 0.1f;
 const float ZOOM = 45.0f;
 
-Camera::Camera(glm::vec3 position, glm::vec3 up, float yaw, float pitch)
+Camera::Camera(glm::vec3 position, float yaw, float pitch, glm::vec3 up)
     : position(position), front(glm::vec3(0.0f, 0.0f, -1.0f)), worldUp(up),
       yaw(yaw), pitch(pitch), movementSpeed(SPEED),
       mouseSensitivity(SENSITIVITY), zoom(ZOOM) {
@@ -16,7 +16,7 @@ Camera::Camera(glm::vec3 position, glm::vec3 up, float yaw, float pitch)
 }
 Camera::Camera(float posX, float posY, float posZ, float upX, float upY,
                float upZ, float yaw, float pitch) {
-  Camera(glm::vec3(posX, posY, posZ), glm::vec3(upX, upY, upZ), yaw, pitch);
+  Camera(glm::vec3(posX, posY, posZ), yaw, pitch, glm::vec3(upX, upY, upZ));
 }
 
 glm::mat4 Camera::getViewMatrix() {
