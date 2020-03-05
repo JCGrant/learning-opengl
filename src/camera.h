@@ -19,6 +19,7 @@ extern const float ZOOM;
 class Camera {
 public:
   glm::vec3 position;
+  glm::vec3 front;
 
   // Constructor with vectors
   Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), float yaw = YAW,
@@ -49,7 +50,6 @@ public:
 
 private:
   // Camera Attributes
-  glm::vec3 front;
   glm::vec3 up;
   glm::vec3 right;
   glm::vec3 worldUp;
