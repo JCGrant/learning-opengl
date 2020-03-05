@@ -18,6 +18,8 @@ extern const float ZOOM;
 // corresponding Euler Angles, Vectors and Matrices for use in OpenGL
 class Camera {
 public:
+  glm::vec3 position;
+
   // Constructor with vectors
   Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), float yaw = YAW,
          float pitch = PITCH, glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f));
@@ -47,7 +49,6 @@ public:
 
 private:
   // Camera Attributes
-  glm::vec3 position;
   glm::vec3 front;
   glm::vec3 up;
   glm::vec3 right;
