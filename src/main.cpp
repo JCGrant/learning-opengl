@@ -6,7 +6,6 @@
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <stb_image.h>
 
 #include "camera.h"
 #include "shader.h"
@@ -180,9 +179,9 @@ int main() {
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)0);
   glEnableVertexAttribArray(0);
 
-  unsigned int diffuseMap = loadTexture("resources/textures/container2.png");
+  unsigned int diffuseMap = loadTexture("./resources/textures/container2.png");
   unsigned int specularMap =
-      loadTexture("resources/textures/container2_specular.png");
+      loadTexture("./resources/textures/container2_specular.png");
 
   lightingShader.use();
   lightingShader.setInt("material.diffuse", 0);
