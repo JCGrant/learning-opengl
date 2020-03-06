@@ -41,6 +41,12 @@ void Camera::processKeyboard(Camera_Movement direction, float deltaTime) {
   if (direction == RIGHT) {
     position += right * velocity;
   }
+  if (direction == UP) {
+    position += up * velocity;
+  }
+  if (direction == DOWN) {
+    position -= up * velocity;
+  }
 }
 
 void Camera::processMouseMovement(float xoffset, float yoffset,
