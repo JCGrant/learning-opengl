@@ -1,4 +1,3 @@
-#include <cmath>
 #include <iostream>
 
 #include <glad/glad.h>
@@ -8,8 +7,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "camera.h"
+#include "model.h"
 #include "shader.h"
-#include "utils.h"
 
 const unsigned int DEFAULT_WIDTH = 800;
 const unsigned int DEFAULT_HEIGHT = 600;
@@ -47,11 +46,13 @@ void processInput(GLFWwindow *window) {
   }
 }
 
-void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
+void framebufferSizeCallback(__attribute__((unused)) GLFWwindow *window,
+                             int width, int height) {
   glViewport(0, 0, width, height);
 }
 
-void mouseCallback(GLFWwindow *window, double xpos, double ypos) {
+void mouseCallback(__attribute__((unused)) GLFWwindow *window, double xpos,
+                   double ypos) {
   if (firstMouse) {
     lastX = xpos;
     lastY = ypos;
@@ -67,7 +68,8 @@ void mouseCallback(GLFWwindow *window, double xpos, double ypos) {
   camera.processMouseMovement(xoffset, yoffset);
 }
 
-void scrollCallback(GLFWwindow *window, double xoffset, double yoffset) {
+void scrollCallback(__attribute__((unused)) GLFWwindow *window,
+                    __attribute__((unused)) double xoffset, double yoffset) {
   camera.processMouseScroll(yoffset);
 }
 
@@ -150,7 +152,7 @@ int main() {
   };
 
   glm::vec3 cubePositions[] = {
-      glm::vec3(0.0f, 0.0f, 0.0f),    glm::vec3(2.0f, 5.0f, -15.0f),
+      glm::vec3(-3.0f, 0.0f, 0.0f),   glm::vec3(2.0f, 5.0f, -15.0f),
       glm::vec3(-1.5f, -2.2f, -2.5f), glm::vec3(-3.8f, -2.0f, -12.3f),
       glm::vec3(2.4f, -0.4f, -3.5f),  glm::vec3(-1.7f, 3.0f, -7.5f),
       glm::vec3(1.3f, -2.0f, -2.5f),  glm::vec3(1.5f, 2.0f, -2.5f),
@@ -192,6 +194,8 @@ int main() {
   lightingShader.use();
   lightingShader.setInt("material.diffuse", 0);
   lightingShader.setInt("material.specular", 1);
+
+  Model nanosuit("resources/objects/nanosuit/nanosuit.obj");
 
   while (!glfwWindowShouldClose(window)) {
     float currentFrame = glfwGetTime();
@@ -285,6 +289,14 @@ int main() {
       lightingShader.setMat4("model", model);
       glDrawArrays(GL_TRIANGLES, 0, 36);
     }
+
+    glm::mat4 model = glm::mat4(1.0f);
+    // translate it down so it's at the center of the scene
+    model = glm::translate(model, glm::vec3(0.0f, -1.75f, 0.0f));
+    // it's a bit too big for our scene, so scale it down
+    model = glm::scale(model, glm::vec3(0.2f, 0.2f, 0.2f));
+    lightingShader.setMat4("model", model);
+    nanosuit.Draw(lightingShader);
 
     lampShader.use();
     lampShader.setMat4("projection", projection);
