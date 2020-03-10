@@ -1,4 +1,5 @@
 #include <iostream>
+#include <map>
 
 #include <glad/glad.h>
 // prevent clang-format reordering
@@ -102,6 +103,8 @@ int main() {
   }
 
   glEnable(GL_DEPTH_TEST);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   Shader basicShader("./shaders/basic.vert", "./shaders/basic.frag");
   Shader transparentShader("./shaders/basic.vert",
@@ -248,8 +251,14 @@ int main() {
       loadTexture("./resources/textures/container2_specular.png");
   unsigned int floorTexture = loadTexture("resources/textures/metal.png");
   unsigned int grassTexture = loadTexture("resources/textures/grass.png");
+  unsigned int windowTexture = loadTexture("resources/textures/window.png");
 
   vector<glm::vec3> vegetation{
+      glm::vec3(-1.5f, 0.0f, -0.48f), glm::vec3(1.5f, 0.0f, 0.51f),
+      glm::vec3(0.0f, 0.0f, 0.7f), glm::vec3(-0.3f, 0.0f, -2.3f),
+      glm::vec3(0.5f, 0.0f, -0.6f)};
+
+  vector<glm::vec3> windows{
       glm::vec3(-1.5f, 0.0f, -0.48f), glm::vec3(1.5f, 0.0f, 0.51f),
       glm::vec3(0.0f, 0.0f, 0.7f), glm::vec3(-0.3f, 0.0f, -2.3f),
       glm::vec3(0.5f, 0.0f, -0.6f)};
@@ -270,6 +279,13 @@ int main() {
     lastFrame = currentFrame;
 
     processInput(window);
+
+    // sort the transparent windows before rendering
+    std::map<float, glm::vec3> sortedWindows;
+    for (unsigned int i = 0; i < windows.size(); i++) {
+      float distance = glm::length(camera.position - windows[i]);
+      sortedWindows[distance] = windows[i];
+    }
 
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -412,6 +428,18 @@ int main() {
       model = glm::translate(model, vegetation[i]);
       model = glm::translate(model, glm::vec3(0.0f, -1.2f, 0.0f));
       transparentShader.setMat4("model", model);
+      glDrawArrays(GL_TRIANGLES, 0, 6);
+    }
+
+    basicShader.use();
+    glBindVertexArray(transparentVAO);
+    glBindTexture(GL_TEXTURE_2D, windowTexture);
+    for (std::map<float, glm::vec3>::reverse_iterator it =
+             sortedWindows.rbegin();
+         it != sortedWindows.rend(); ++it) {
+      model = glm::mat4(1.0f);
+      model = glm::translate(model, it->second);
+      basicShader.setMat4("model", model);
       glDrawArrays(GL_TRIANGLES, 0, 6);
     }
 
