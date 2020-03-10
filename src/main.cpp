@@ -102,12 +102,10 @@ int main() {
   }
 
   glEnable(GL_DEPTH_TEST);
-  glDepthFunc(GL_LESS);
-  glEnable(GL_STENCIL_TEST);
-  glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-  glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
 
   Shader basicShader("./shaders/basic.vert", "./shaders/basic.frag");
+  Shader transparentShader("./shaders/basic.vert",
+                           "./shaders/transparent.frag");
   Shader lightingShader("./shaders/colors.vert", "./shaders/colors.frag");
   Shader lampShader("./shaders/lamp.vert", "./shaders/lamp.frag");
   Shader shaderSingleColor("shaders/stencil-test.vert",
@@ -169,6 +167,18 @@ int main() {
       5.0f,  -0.5f, -5.0f, 2.0f, 2.0f  //
   };
 
+  float transparentVertices[] = {
+      // positions       // texture Coords
+      // (swapped y coordinates because the texture is flipped upside down)
+      0.0f, 0.5f,  0.0f, 0.0f, 0.0f, //
+      0.0f, -0.5f, 0.0f, 0.0f, 1.0f, //
+      1.0f, -0.5f, 0.0f, 1.0f, 1.0f, //
+
+      0.0f, 0.5f,  0.0f, 0.0f, 0.0f, //
+      1.0f, -0.5f, 0.0f, 1.0f, 1.0f, //
+      1.0f, 0.5f,  0.0f, 1.0f, 0.0f  //
+  };
+
   glm::vec3 cubePositions[] = {
       glm::vec3(-3.0f, 0.0f, 0.0f),   glm::vec3(2.0f, 5.0f, -15.0f),
       glm::vec3(-1.5f, -2.2f, -2.5f), glm::vec3(-3.8f, -2.0f, -12.3f),
@@ -219,13 +229,35 @@ int main() {
                         (void *)(3 * sizeof(float)));
   glBindVertexArray(0);
 
+  unsigned int transparentVAO, transparentVBO;
+  glGenVertexArrays(1, &transparentVAO);
+  glGenBuffers(1, &transparentVBO);
+  glBindVertexArray(transparentVAO);
+  glBindBuffer(GL_ARRAY_BUFFER, transparentVBO);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(transparentVertices),
+               transparentVertices, GL_STATIC_DRAW);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void *)0);
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float),
+                        (void *)(3 * sizeof(float)));
+  glBindVertexArray(0);
+
   unsigned int diffuseMap = loadTexture("./resources/textures/container2.png");
   unsigned int specularMap =
       loadTexture("./resources/textures/container2_specular.png");
   unsigned int floorTexture = loadTexture("resources/textures/metal.png");
+  unsigned int grassTexture = loadTexture("resources/textures/grass.png");
+
+  vector<glm::vec3> vegetation{
+      glm::vec3(-1.5f, 0.0f, -0.48f), glm::vec3(1.5f, 0.0f, 0.51f),
+      glm::vec3(0.0f, 0.0f, 0.7f), glm::vec3(-0.3f, 0.0f, -2.3f),
+      glm::vec3(0.5f, 0.0f, -0.6f)};
 
   basicShader.use();
   basicShader.setInt("texture1", 0);
+  transparentShader.use();
+  transparentShader.setInt("texture1", 0);
   lightingShader.use();
   lightingShader.setInt("material.diffuse", 0);
   lightingShader.setInt("material.specular", 1);
@@ -254,12 +286,12 @@ int main() {
     basicShader.use();
     basicShader.setMat4("projection", projection);
     basicShader.setMat4("view", view);
+    transparentShader.use();
+    transparentShader.setMat4("projection", projection);
+    transparentShader.setMat4("view", view);
     shaderSingleColor.use();
     shaderSingleColor.setMat4("projection", projection);
     shaderSingleColor.setMat4("view", view);
-
-    // don't write the following to the stencil buffer
-    glStencilMask(0x00);
 
     // lighting
     lightingShader.use();
@@ -353,8 +385,7 @@ int main() {
     glDrawArrays(GL_TRIANGLES, 0, 6);
     glBindVertexArray(0);
 
-    glStencilFunc(GL_ALWAYS, 1, 0xFF);
-    glStencilMask(0xFF);
+    // cubes
     lightingShader.use();
     glBindVertexArray(cubeVAO);
     glActiveTexture(GL_TEXTURE0);
@@ -371,24 +402,18 @@ int main() {
       glDrawArrays(GL_TRIANGLES, 0, 36);
     }
 
-    glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-    glStencilMask(0x00);
-    glDisable(GL_DEPTH_TEST);
-    shaderSingleColor.use();
-    float scale = 1.1;
-    for (unsigned int i = 0; i < 10; i++) {
-      glm::mat4 model = glm::mat4(1.0f);
-      model = glm::translate(model, cubePositions[i]);
-      float angle = 20.0f * i;
-      model =
-          glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
-      model = glm::scale(model, glm::vec3(scale, scale, scale));
-      shaderSingleColor.setMat4("model", model);
-      glDrawArrays(GL_TRIANGLES, 0, 36);
+    // vegetation
+    transparentShader.use();
+    glBindVertexArray(transparentVAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, grassTexture);
+    for (GLuint i = 0; i < vegetation.size(); i++) {
+      model = glm::mat4(1.0f);
+      model = glm::translate(model, vegetation[i]);
+      model = glm::translate(model, glm::vec3(0.0f, -1.2f, 0.0f));
+      transparentShader.setMat4("model", model);
+      glDrawArrays(GL_TRIANGLES, 0, 6);
     }
-    glStencilMask(0xFF);
-    glStencilFunc(GL_ALWAYS, 1, 0xFF);
-    glEnable(GL_DEPTH_TEST);
 
     glfwSwapBuffers(window);
     glfwPollEvents();
