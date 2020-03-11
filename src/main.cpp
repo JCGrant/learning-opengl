@@ -14,6 +14,15 @@
 const unsigned int DEFAULT_WIDTH = 800;
 const unsigned int DEFAULT_HEIGHT = 600;
 
+// For retina displays
+#ifdef __APPLE__
+const unsigned int FRAMEBUFFER_WIDTH = DEFAULT_WIDTH * 2;
+const unsigned int FRAMEBUFFER_HEIGHT = DEFAULT_HEIGHT * 2;
+#else
+const unsigned int FRAMEBUFFER_WIDTH = DEFAULT_WIDTH;
+const unsigned int FRAMEBUFFER_HEIGHT = DEFAULT_HEIGHT;
+#endif
+
 Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
 float lastX = DEFAULT_WIDTH / 2.0;
 float lastY = DEFAULT_HEIGHT / 2.0;
@@ -110,6 +119,8 @@ int main() {
   Shader basicShader("./shaders/basic.vert", "./shaders/basic.frag");
   Shader transparentShader("./shaders/basic.vert",
                            "./shaders/transparent.frag");
+  Shader screenShader("./shaders/screen-quad.vert",
+                      "./shaders/screen-quad.frag");
   Shader lightingShader("./shaders/colors.vert", "./shaders/colors.frag");
   Shader lampShader("./shaders/lamp.vert", "./shaders/lamp.frag");
   Shader shaderSingleColor("shaders/stencil-test.vert",
@@ -183,6 +194,17 @@ int main() {
       1.0f, 0.5f,  0.0f, 1.0f, 0.0f  //
   };
 
+  float quadVertices[] = {
+      // positions  // texCoords
+      -1.0f, 1.0f,  0.0f, 1.0f, //
+      -1.0f, -1.0f, 0.0f, 0.0f, //
+      1.0f,  -1.0f, 1.0f, 0.0f, //
+
+      -1.0f, 1.0f,  0.0f, 1.0f, //
+      1.0f,  -1.0f, 1.0f, 0.0f, //
+      1.0f,  1.0f,  1.0f, 1.0f  //
+  };
+
   glm::vec3 cubePositions[] = {
       glm::vec3(-3.0f, 0.0f, 0.0f),   glm::vec3(2.0f, 5.0f, -15.0f),
       glm::vec3(-1.5f, -2.2f, -2.5f), glm::vec3(-3.8f, -2.0f, -12.3f),
@@ -247,6 +269,19 @@ int main() {
                         (void *)(3 * sizeof(float)));
   glBindVertexArray(0);
 
+  unsigned int quadVAO, quadVBO;
+  glGenVertexArrays(1, &quadVAO);
+  glGenBuffers(1, &quadVBO);
+  glBindVertexArray(quadVAO);
+  glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices,
+               GL_STATIC_DRAW);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)0);
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
+                        (void *)(2 * sizeof(float)));
+
   unsigned int diffuseMap = loadTexture("./resources/textures/container2.png");
   unsigned int specularMap =
       loadTexture("./resources/textures/container2_specular.png");
@@ -271,8 +306,40 @@ int main() {
   lightingShader.use();
   lightingShader.setInt("material.diffuse", 0);
   lightingShader.setInt("material.specular", 1);
+  screenShader.use();
+  screenShader.setInt("screenTexture", 0);
 
   Model nanosuit("resources/objects/nanosuit/nanosuit.obj");
+
+  unsigned int framebuffer;
+  glGenFramebuffers(1, &framebuffer);
+  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+  // create a color attachment texture
+  unsigned int textureColorbuffer;
+  glGenTextures(1, &textureColorbuffer);
+  glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT,
+               0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                         textureColorbuffer, 0);
+  // create a renderbuffer object for depth and stencil attachment (we won't be
+  // sampling these)
+  unsigned int rbo;
+  glGenRenderbuffers(1, &rbo);
+  glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+  glRenderbufferStorage(
+      GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, FRAMEBUFFER_WIDTH,
+      FRAMEBUFFER_HEIGHT); // use a single renderbuffer object for
+                           // both a depth AND stencil buffer.
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                            GL_RENDERBUFFER, rbo); // now actually attach it
+  // now that we actually created the framebuffer and added all attachments we
+  // want to check if it is actually complete now
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << endl;
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
   while (!glfwWindowShouldClose(window)) {
     float currentFrame = glfwGetTime();
@@ -287,6 +354,9 @@ int main() {
       float distance = glm::length(camera.position - windows[i]);
       sortedWindows[distance] = windows[i];
     }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    glEnable(GL_DEPTH_TEST);
 
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -444,6 +514,25 @@ int main() {
       glDrawArrays(GL_TRIANGLES, 0, 6);
     }
 
+    // now bind back to default framebuffer and draw a quad plane with the
+    // attached framebuffer color texture
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDisable(GL_DEPTH_TEST); // disable depth test so screen-space quad isn't
+                              // discarded due to depth test.
+    // clear all relevant buffers
+    glClearColor(
+        1.0f, 1.0f, 1.0f,
+        1.0f); // set clear color to white (not really necessery actually, since
+               // we won't be able to see behind the quad anyways)
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    screenShader.use();
+    glBindVertexArray(quadVAO);
+    glBindTexture(GL_TEXTURE_2D,
+                  textureColorbuffer); // use the color attachment texture as
+                                       // the texture of the quad plane
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
     glfwSwapBuffers(window);
     glfwPollEvents();
   }
@@ -451,8 +540,10 @@ int main() {
   glDeleteVertexArrays(1, &cubeVAO);
   glDeleteVertexArrays(1, &lightVAO);
   glDeleteVertexArrays(1, &planeVAO);
+  glDeleteVertexArrays(1, &quadVAO);
   glDeleteBuffers(1, &cubeVBO);
   glDeleteBuffers(1, &planeVBO);
+  glDeleteBuffers(1, &quadVBO);
 
   glfwTerminate();
   return 0;
