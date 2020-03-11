@@ -13,6 +13,8 @@ using namespace std;
 
 unsigned int loadTexture(string path);
 
+unsigned int loadCubemap(vector<std::string> faces);
+
 class Model {
 public:
   vector<Texture> textures_loaded;

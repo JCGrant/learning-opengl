@@ -125,6 +125,7 @@ int main() {
   Shader lampShader("./shaders/lamp.vert", "./shaders/lamp.frag");
   Shader shaderSingleColor("shaders/stencil-test.vert",
                            "shaders/stencil-test.frag");
+  Shader skyboxShader("shaders/skybox.vert", "shaders/skybox.frag");
 
   float vertices[] = {
       // positions         // normals           // texture coords
@@ -216,6 +217,51 @@ int main() {
       glm::vec3(0.7f, 0.2f, 2.0f), glm::vec3(2.3f, -3.3f, -4.0f),
       glm::vec3(-4.0f, 2.0f, -12.0f), glm::vec3(0.0f, 0.0f, -3.0f)};
 
+  float skyboxVertices[] = {
+      // positions
+      -1.0f, 1.0f,  -1.0f, //
+      -1.0f, -1.0f, -1.0f, //
+      1.0f,  -1.0f, -1.0f, //
+      1.0f,  -1.0f, -1.0f, //
+      1.0f,  1.0f,  -1.0f, //
+      -1.0f, 1.0f,  -1.0f, //
+
+      -1.0f, -1.0f, 1.0f,  //
+      -1.0f, -1.0f, -1.0f, //
+      -1.0f, 1.0f,  -1.0f, //
+      -1.0f, 1.0f,  -1.0f, //
+      -1.0f, 1.0f,  1.0f,  //
+      -1.0f, -1.0f, 1.0f,  //
+
+      1.0f,  -1.0f, -1.0f, //
+      1.0f,  -1.0f, 1.0f,  //
+      1.0f,  1.0f,  1.0f,  //
+      1.0f,  1.0f,  1.0f,  //
+      1.0f,  1.0f,  -1.0f, //
+      1.0f,  -1.0f, -1.0f, //
+
+      -1.0f, -1.0f, 1.0f, //
+      -1.0f, 1.0f,  1.0f, //
+      1.0f,  1.0f,  1.0f, //
+      1.0f,  1.0f,  1.0f, //
+      1.0f,  -1.0f, 1.0f, //
+      -1.0f, -1.0f, 1.0f, //
+
+      -1.0f, 1.0f,  -1.0f, //
+      1.0f,  1.0f,  -1.0f, //
+      1.0f,  1.0f,  1.0f,  //
+      1.0f,  1.0f,  1.0f,  //
+      -1.0f, 1.0f,  1.0f,  //
+      -1.0f, 1.0f,  -1.0f, //
+
+      -1.0f, -1.0f, -1.0f, //
+      -1.0f, -1.0f, 1.0f,  //
+      1.0f,  -1.0f, -1.0f, //
+      1.0f,  -1.0f, -1.0f, //
+      -1.0f, -1.0f, 1.0f,  //
+      1.0f,  -1.0f, 1.0f   //
+  };
+
   unsigned int cubeVBO;
   glGenBuffers(1, &cubeVBO);
   glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
@@ -282,12 +328,30 @@ int main() {
   glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float),
                         (void *)(2 * sizeof(float)));
 
+  unsigned int skyboxVAO, skyboxVBO;
+  glGenVertexArrays(1, &skyboxVAO);
+  glGenBuffers(1, &skyboxVBO);
+  glBindVertexArray(skyboxVAO);
+  glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices,
+               GL_STATIC_DRAW);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void *)0);
+
   unsigned int diffuseMap = loadTexture("./resources/textures/container2.png");
   unsigned int specularMap =
       loadTexture("./resources/textures/container2_specular.png");
   unsigned int floorTexture = loadTexture("resources/textures/metal.png");
   unsigned int grassTexture = loadTexture("resources/textures/grass.png");
   unsigned int windowTexture = loadTexture("resources/textures/window.png");
+
+  vector<std::string> faces{"resources/textures/skybox/right.jpg",
+                            "resources/textures/skybox/left.jpg",
+                            "resources/textures/skybox/top.jpg",
+                            "resources/textures/skybox/bottom.jpg",
+                            "resources/textures/skybox/front.jpg",
+                            "resources/textures/skybox/back.jpg"};
+  unsigned int cubemapTexture = loadCubemap(faces);
 
   vector<glm::vec3> vegetation{
       glm::vec3(-1.5f, 0.0f, -0.48f), glm::vec3(1.5f, 0.0f, 0.51f),
@@ -308,6 +372,8 @@ int main() {
   lightingShader.setInt("material.specular", 1);
   screenShader.use();
   screenShader.setInt("screenTexture", 0);
+  skyboxShader.use();
+  skyboxShader.setInt("skybox", 0);
 
   Model nanosuit("resources/objects/nanosuit/nanosuit.obj");
 
@@ -379,6 +445,11 @@ int main() {
     shaderSingleColor.use();
     shaderSingleColor.setMat4("projection", projection);
     shaderSingleColor.setMat4("view", view);
+    skyboxShader.use();
+    glm::mat4 skyboxView = glm::mat4(glm::mat3(
+        camera.getViewMatrix())); // remove translation from the view matrix
+    skyboxShader.setMat4("view", skyboxView);
+    skyboxShader.setMat4("projection", projection);
 
     // lighting
     lightingShader.use();
@@ -502,6 +573,7 @@ int main() {
       glDrawArrays(GL_TRIANGLES, 0, 6);
     }
 
+    // windows
     basicShader.use();
     glBindVertexArray(transparentVAO);
     glBindTexture(GL_TEXTURE_2D, windowTexture);
@@ -513,6 +585,16 @@ int main() {
       basicShader.setMat4("model", model);
       glDrawArrays(GL_TRIANGLES, 0, 6);
     }
+
+    // draw skybox last
+    glDepthFunc(GL_LEQUAL);
+    skyboxShader.use();
+    glBindVertexArray(skyboxVAO);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
+    glDepthFunc(GL_LESS);
 
     // now bind back to default framebuffer and draw a quad plane with the
     // attached framebuffer color texture
@@ -541,9 +623,11 @@ int main() {
   glDeleteVertexArrays(1, &lightVAO);
   glDeleteVertexArrays(1, &planeVAO);
   glDeleteVertexArrays(1, &quadVAO);
+  glDeleteVertexArrays(1, &skyboxVAO);
   glDeleteBuffers(1, &cubeVBO);
   glDeleteBuffers(1, &planeVBO);
   glDeleteBuffers(1, &quadVBO);
+  glDeleteBuffers(1, &skyboxVAO);
 
   glfwTerminate();
   return 0;
