@@ -74,6 +74,7 @@ set_target_properties(
 )
 add_custom_command(
   TARGET ${PROJECT_NAME} POST_BUILD
-  COMMAND cp -r ${PROJECT_DEPS} $<TARGET_FILE_DIR:${PROJECT_NAME}>/
+  COMMAND ${CMAKE_COMMAND} -E create_symlink ${PROJECT_SOURCE_DIR}/shaders $<TARGET_FILE_DIR:${PROJECT_NAME}>/shaders
+  COMMAND ${CMAKE_COMMAND} -E create_symlink ${PROJECT_SOURCE_DIR}/resources $<TARGET_FILE_DIR:${PROJECT_NAME}>/resources
   DEPENDS ${PROJECT_DEPS}
 )
