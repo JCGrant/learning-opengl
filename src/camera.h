@@ -19,6 +19,7 @@ extern const float ZOOM;
 class Camera {
 public:
   glm::vec3 position;
+  float zoom;
   glm::vec3 front;
 
   // Constructor with vectors
@@ -59,7 +60,6 @@ private:
   // Camera options
   float movementSpeed;
   float mouseSensitivity;
-  float zoom;
 
   // Calculates the front vector from the Camera's (updated) Euler Angles
   void updateCameraVectors();
